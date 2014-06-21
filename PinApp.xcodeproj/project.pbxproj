@@ -445,6 +445,7 @@
 				83AA2D9B1955E0EF002C61DE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 		83AA2D9C1955E0EF002C61DE /* Build configuration list for PBXNativeTarget "PinAppTests" */ = {
 			isa = XCConfigurationList;
@@ -453,6 +454,7 @@
 				83AA2D9E1955E0EF002C61DE /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
