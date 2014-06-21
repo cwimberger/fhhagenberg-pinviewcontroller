@@ -4,7 +4,9 @@
 
 #import "PinViewController.h"
 
-@interface PinViewController ()
+#import <CoreMotion/CoreMotion.h>
+
+@interface PinViewController () <UIAlertViewDelegate>
 
 @end
 
@@ -12,6 +14,8 @@
 {
     UILabel *_pinLabel;
     NSString *_correctPin;
+    UIDynamicAnimator *_animator;
+    CMMotionManager *_motionManager;
 }
 
 // designated initializer
@@ -34,27 +38,8 @@
 {
     UIView *view = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 320, 480)];
     view.backgroundColor = [UIColor darkGrayColor];
-    
-    for (NSUInteger i=0;i<10;i++) {
-        UIButton *button = [[UIButton alloc] initWithFrame:[self __rectForButtonAtIndex:i withSize:view.bounds.size]];
-        button.backgroundColor = [UIColor lightGrayColor];
-        button.showsTouchWhenHighlighted = YES;
-        button.titleLabel.font = [UIFont systemFontOfSize:30.0f];
-        button.layer.cornerRadius = 30.0f;
-        button.layer.borderWidth = 1.0f;
-        button.layer.borderColor = [UIColor whiteColor].CGColor;
-        [button setTitle:[@((i+1)%10) description] forState:UIControlStateNormal];
-        [button addTarget:self action:@selector(__digitButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
-        [view addSubview:button];
-    }
-    
-    _pinLabel = [[UILabel alloc] initWithFrame:CGRectMake(40, 90, 240, 50)];
-    _pinLabel.backgroundColor = [UIColor lightGrayColor];
-    _pinLabel.textAlignment = NSTextAlignmentCenter;
-    _pinLabel.font = [UIFont systemFontOfSize:30.0f];
-    _pinLabel.layer.cornerRadius = 5.0f;
-    _pinLabel.clipsToBounds = YES;
-    [view addSubview:_pinLabel];
+
+    [self __addViews:view];
     
     self.view = view;
 }
@@ -65,7 +50,38 @@
     _pinLabel.text = @"";
 }
 
+#pragma mark UIAlertViewDelegate Methods
+
+- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex
+{
+    [self __reset];
+}
+
 #pragma mark Private Methods
+
+- (void)__addViews:(UIView *)view
+{
+    for (NSUInteger i=0;i<10;i++) {
+        UIButton *button = [[UIButton alloc] initWithFrame:[self __rectForButtonAtIndex:i withSize:view.bounds.size]];
+        button.backgroundColor = [UIColor lightGrayColor];
+        button.titleLabel.font = [UIFont systemFontOfSize:30.0f];
+        button.layer.cornerRadius = 30.0f;
+        button.layer.borderWidth = 1.0f;
+        button.layer.borderColor = [UIColor whiteColor].CGColor;
+        [button setTitle:[@((i+1)%10) description] forState:UIControlStateNormal];
+        [button addTarget:self action:@selector(__digitButtonTapped:) forControlEvents:UIControlEventTouchUpInside];
+        [view addSubview:button];
+    }
+    
+    _pinLabel = [[UILabel alloc] initWithFrame:[self __rectForPinLabel]];
+    _pinLabel.backgroundColor = [UIColor lightGrayColor];
+    _pinLabel.textAlignment = NSTextAlignmentCenter;
+    _pinLabel.font = [UIFont systemFontOfSize:30.0f];
+    _pinLabel.layer.cornerRadius = 5.0f;
+    _pinLabel.clipsToBounds = YES;
+    _pinLabel.text = @"";
+    [view addSubview:_pinLabel];
+}
 
 - (CGRect)__rectForButtonAtIndex:(NSUInteger)index withSize:(CGSize)size
 {
@@ -91,6 +107,11 @@
     return CGRectMake(x, y, buttonSize.width, buttonSize.height);
 }
 
+- (CGRect)__rectForPinLabel
+{
+    return CGRectMake(40, 90, 240, 50);
+}
+
 - (void)__digitButtonTapped:(UIButton *)button
 {
     _pinLabel.text = [_pinLabel.text stringByAppendingString:button.titleLabel.text];
@@ -109,11 +130,47 @@
         UIAlertView *av = [[UIAlertView alloc] initWithTitle:@"Correct" message:@"The entered pin is correct." delegate:nil cancelButtonTitle:@"OK" otherButtonTitles:nil];
         [av show];
     } else {
-        UIAlertView *av = [[UIAlertView alloc] initWithTitle:@"Incorrect" message:@"The entered pin is incorrect." delegate:nil cancelButtonTitle:@"Try Again" otherButtonTitles:nil];
+        
+        [self __addDynamicsForWrongPin];
+        
+        UIAlertView *av = [[UIAlertView alloc] initWithTitle:@"Incorrect" message:@"The entered pin is incorrect." delegate:self cancelButtonTitle:@"Try Again" otherButtonTitles:nil];
         [av show];
     }
+}
+
+- (void)__addDynamicsForWrongPin
+{
+    [_animator removeAllBehaviors];
+    _animator = [[UIDynamicAnimator alloc] initWithReferenceView:self.view];
     
-    _pinLabel.text = @"";
+    UIGravityBehavior *gravityBehavior = [[UIGravityBehavior alloc] initWithItems:self.view.subviews];
+    [_animator addBehavior:gravityBehavior];
+
+    _motionManager = [[CMMotionManager alloc] init];
+    _motionManager.deviceMotionUpdateInterval = 0.1;
+    [_motionManager startDeviceMotionUpdatesToQueue:[NSOperationQueue mainQueue] withHandler:^(CMDeviceMotion *motion, NSError *error) {
+        CMAcceleration gravity = motion.gravity;
+        gravityBehavior.gravityDirection = CGVectorMake(gravity.x, -gravity.y);
+    }];
+    
+    UICollisionBehavior *collisionBehavior = [[UICollisionBehavior alloc] initWithItems:self.view.subviews];
+    collisionBehavior.translatesReferenceBoundsIntoBoundary = YES;
+    
+    [_animator addBehavior:collisionBehavior];
+}
+
+- (void)__reset
+{
+    _animator = nil;
+    _motionManager = nil;
+    
+    [UIView transitionWithView:self.view duration:1.0 options:UIViewAnimationOptionTransitionCurlUp animations:^{
+        [self.view.subviews enumerateObjectsUsingBlock:^(UIView *subview, NSUInteger idx, BOOL *stop) {
+            [subview removeFromSuperview];
+        }];
+        
+        [self __addViews:self.view];
+    } completion:nil];
 }
 
 @end
